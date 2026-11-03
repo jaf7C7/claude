@@ -1,0 +1,23 @@
+#!/bin/sh
+if test "$(pwd)" = "$HOME"; then
+    echo "it's not a good idea to run claude in your home directory"
+    exit 1
+fi
+
+# NOTE: uid, gid must match the claude user inside the container or
+# you'll get permissions errors when writing to the mounted volume.
+#
+#  If you'd rather the script didn't break when the image's uid changes,
+#  it could look the uid up from the image:
+# 
+#  sh
+#  cuid=$(podman run --rm --entrypoint id claude -u claude)
+#  cgid=$(podman run --rm --entrypoint id claude -g claude)
+#  exec podman run --interactive --tty --rm
+#  --userns=keep-id:uid=$cuid,gid=$cgid \
+#      ...
+#   
+exec podman run --interactive --tty --rm --userns=keep-id:uid=1000,gid=1000 \
+    --mount type=bind,src=.,dst=/home/claude/work \
+    --mount type=volume,src=claude-containers,dst=/home/claude/.local/share/containers \
+    --secret claude_token,type=env,target=CLAUDE_CODE_OAUTH_TOKEN claude "$@"

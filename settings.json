@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "syntaxHighlightingDisabled": true,
+  "effortLevel": "xhigh",
+  "promptSuggestionEnabled": false,
+  "autoMemoryEnabled": false,
+  "theme": "light",
+  "agentPushNotifEnabled": true,
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
+  "autoUpdatesChannel": "stable"
+}
