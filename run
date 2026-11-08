@@ -4,6 +4,22 @@ if test "$(pwd)" = "$HOME"; then
     exit 1
 fi
 
+tag=
+n=$#
+while test $n -gt 0; do
+    arg=$1; shift; n=$((n - 1))
+    case $arg in
+    --tag|-t)
+        if test $n -eq 0; then
+            echo "$arg needs a value" >&2
+            exit 1
+        fi
+        tag=$1; shift; n=$((n - 1)) ;;
+    --tag=*) tag=${arg#--tag=} ;;
+    *) set -- "$@" "$arg" ;;
+    esac
+done
+
 # NOTE: uid, gid must match the claude user inside the container or
 # you'll get permissions errors when writing to the mounted volume.
 #
@@ -20,4 +36,4 @@ fi
 exec podman run --interactive --tty --rm --userns=keep-id:uid=1000,gid=1000 \
     --mount type=bind,src=.,dst=/home/claude/work \
     --mount type=volume,src=claude-containers,dst=/home/claude/.local/share/containers \
-    --secret claude_token,type=env,target=CLAUDE_CODE_OAUTH_TOKEN claude "$@"
+    --secret claude_token,type=env,target=CLAUDE_CODE_OAUTH_TOKEN claude${tag:+:"$tag"} "$@"

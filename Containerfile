@@ -1,6 +1,7 @@
-FROM debian:stable-slim
+# Base image: `podman` (quay.io/podman/stable) or `debian`.
+ARG BASE=podman
 
-ENV LANG=C.UTF-8
+FROM debian:stable-slim AS base-debian
 
 RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	locales curl ca-certificates git podman crun uidmap catatonit passt \
@@ -23,9 +24,30 @@ RUN useradd --key SUB_UID_COUNT=0 --key SUB_GID_COUNT=0 --create-home claude && 
 	usermod --add-subuids 1001-65536 --add-subgids 1001-65536 claude
 
 COPY containers.conf /etc/containers/containers.conf
+COPY --chown=claude:claude podman-containers.conf /home/claude/.config/containers/containers.conf
 
 # Tell nested podman it's already in a configured user namespace.
 ENV _CONTAINERS_USERNS_CONFIGURED=""
+
+# The official podman image already has the nested podman config (the
+# same files as containers.conf and podman-containers.conf), file
+# capabilities on newuidmap/newgidmap, and a uid 1000 `podman` user with
+# sub[ug]ids. It also declares VOLUMEs on /var/lib/containers and
+# /home/podman/.local/share/containers, which can't be undone here.
+FROM quay.io/podman/stable AS base-podman
+
+RUN dnf install --assumeyes git-core && dnf clean all
+
+# `./run` expects uid 1000 to be claude, with its home in /home/claude.
+RUN usermod --login claude --home /home/claude --move-home podman && \
+	groupmod --new-name claude podman && \
+	sed --in-place 's/^podman:/claude:/' /etc/subuid /etc/subgid
+
+COPY --chown=claude:claude podman-storage.conf /home/claude/.config/containers/storage.conf
+
+FROM base-${BASE}
+
+ENV LANG=C.UTF-8
 
 USER claude
 
@@ -37,7 +59,6 @@ WORKDIR /home/claude/work
 
 COPY --chown=claude:claude .claude.json   /home/claude/.claude.json
 COPY --chown=claude:claude settings.json /home/claude/.claude/settings.json
-COPY --chown=claude:claude podman-containers.conf /home/claude/.config/containers/containers.conf
 
 ARG CLAUDE_VERSION=stable
 RUN curl -fsSL https://claude.ai/install.sh | bash -sl $CLAUDE_VERSION
